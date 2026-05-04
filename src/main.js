@@ -97,76 +97,127 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "hi
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.08;
 document.querySelector("#canvasHost").appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x91c2d0);
-scene.fog = new THREE.Fog(0x91c2d0, 90, 680);
+scene.fog = new THREE.Fog(0x91c2d0, 130, 760);
 const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 1200);
-const sun = new THREE.DirectionalLight(0xffffff, 2.4);
-sun.position.set(-50, 120, 80);
+const sun = new THREE.DirectionalLight(0xfff4dc, 2.8);
+sun.position.set(-60, 130, 95);
 sun.castShadow = true;
-scene.add(sun, new THREE.HemisphereLight(0xb8e6ff, 0x4d5a45, 1.45));
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.near = 10;
+sun.shadow.camera.far = 420;
+sun.shadow.camera.left = -120;
+sun.shadow.camera.right = 120;
+sun.shadow.camera.top = 120;
+sun.shadow.camera.bottom = -120;
+scene.add(sun, new THREE.HemisphereLight(0xc8f2ff, 0x5a754e, 1.75));
 
 const world = new THREE.Group();
 scene.add(world);
 
 const boxGeo = new THREE.BoxGeometry(1, 1, 1);
-const beadGeo = new THREE.SphereGeometry(1, 10, 8);
+const beadGeo = new THREE.SphereGeometry(1, 18, 14);
+const hullGeo = new THREE.CapsuleGeometry(1, 4.8, 8, 18);
+const torsoGeo = new THREE.CapsuleGeometry(0.55, 0.7, 6, 14);
+const armGeo = new THREE.CapsuleGeometry(0.13, 0.95, 5, 10);
+const shaftGeo = new THREE.CylinderGeometry(0.07, 0.07, 6.2, 10);
 const paddleGeo = new THREE.BoxGeometry(1, 1, 1);
 const trimGeo = new THREE.BoxGeometry(1, 1, 1);
 const materials = new Map();
-function mat(color, rough = 0.75) {
-  const key = `${color}-${rough}`;
+function mat(color, rough = 0.75, options = {}) {
+  const key = `${color}-${rough}-${options.metalness || 0.02}-${options.opacity || 1}-${options.transparent || false}`;
   if (!materials.has(key)) {
-    materials.set(key, new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: 0.02 }));
+    materials.set(key, new THREE.MeshStandardMaterial({
+      color,
+      roughness: rough,
+      metalness: options.metalness ?? 0.02,
+      transparent: options.transparent || false,
+      opacity: options.opacity ?? 1
+    }));
   }
   return materials.get(key);
 }
 
 function makeBoat(character, isPlayer) {
   const group = new THREE.Group();
-  const hull = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.95, 7.3), mat(character.color, 0.55));
-  hull.position.y = 0.78;
+  const hull = new THREE.Mesh(hullGeo, mat(character.color, 0.5));
+  hull.rotation.x = Math.PI / 2;
+  hull.scale.set(1.65, 0.44, 0.66);
+  hull.position.y = 0.9;
   hull.castShadow = true;
-  const bow = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.74, 2.0), mat(0xfff6df, 0.62));
-  bow.position.set(0, 1.0, -3.55);
+
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(3.35, 0.2, 5.35), mat(0xfff1d6, 0.58));
+  deck.position.set(0, 1.34, -0.18);
+  deck.castShadow = true;
+  const bow = new THREE.Mesh(new THREE.ConeGeometry(1.42, 1.4, 18), mat(0xfff1d6, 0.58));
+  bow.rotation.x = -Math.PI / 2;
+  bow.scale.x = 1.18;
+  bow.position.set(0, 1.16, -3.96);
   bow.castShadow = true;
+
   const stern = new THREE.Mesh(trimGeo, mat(0xfff6df, 0.62));
-  stern.scale.set(3.3, 0.36, 0.42);
-  stern.position.set(0, 1.28, 3.15);
+  stern.scale.set(2.8, 0.35, 0.32);
+  stern.position.set(0, 1.43, 3.35);
   stern.castShadow = true;
-  const seat = new THREE.Mesh(trimGeo, mat(0x9b6f4b, 0.7));
-  seat.scale.set(2.5, 0.24, 1.1);
-  seat.position.set(0, 1.35, 0.15);
+
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.18, 0.92), mat(0x8c5a35, 0.62));
+  seat.position.set(0, 1.55, 0.05);
   seat.castShadow = true;
-  const rower = new THREE.Mesh(beadGeo, mat(isPlayer ? 0xffd966 : 0x36434c, 0.72));
-  rower.scale.set(0.68, 0.76, 0.68);
-  rower.position.set(0, 2.05, -0.25);
-  rower.castShadow = true;
-  const face = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.16, 0.08), mat(0x243036, 0.8));
-  face.position.set(0, 2.1, -0.88);
+
+  const torso = new THREE.Mesh(torsoGeo, mat(isPlayer ? 0xffd966 : 0x36434c, 0.72));
+  torso.scale.set(0.9, 1.0, 0.72);
+  torso.position.set(0, 2.0, -0.12);
+  torso.castShadow = true;
+  const head = new THREE.Mesh(beadGeo, mat(0xf3b890, 0.64));
+  head.scale.set(0.47, 0.55, 0.47);
+  head.position.set(0, 2.78, -0.22);
+  head.castShadow = true;
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.56), mat(0x44312a, 0.72));
+  hair.scale.set(0.49, 0.25, 0.49);
+  hair.position.set(0, 3.08, -0.22);
+  hair.castShadow = true;
+  const face = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.08, 0.05), mat(0x243036, 0.8));
+  face.position.set(0, 2.78, -0.68);
   face.castShadow = true;
+
+  const leftArm = new THREE.Mesh(armGeo, mat(0xf3b890, 0.64));
+  const rightArm = leftArm.clone();
+  leftArm.rotation.set(0.25, 0.1, 1.08);
+  rightArm.rotation.set(0.25, -0.1, -1.08);
+  leftArm.position.set(-0.72, 2.06, 0.2);
+  rightArm.position.set(0.72, 2.06, 0.2);
+  leftArm.castShadow = true;
+  rightArm.castShadow = true;
+
   const stripe = new THREE.Mesh(trimGeo, mat(0xffffff, 0.6));
-  stripe.scale.set(4.35, 0.12, 0.18);
-  stripe.position.set(0, 1.36, -1.3);
+  stripe.scale.set(3.6, 0.08, 0.12);
+  stripe.position.set(0, 1.48, -1.35);
   stripe.castShadow = true;
 
-  const oarMat = mat(0xb77846, 0.62);
-  const bladeMat = mat(0xfff2bd, 0.56);
+  const oarMat = mat(0x8d5b38, 0.52);
+  const bladeMat = mat(0xfff2bd, 0.44);
   const leftOar = new THREE.Group();
   const rightOar = new THREE.Group();
   for (const [oar, side] of [[leftOar, -1], [rightOar, 1]]) {
-    const shaft = new THREE.Mesh(new THREE.BoxGeometry(5.7, 0.18, 0.22), oarMat);
+    const shaft = new THREE.Mesh(shaftGeo, oarMat);
+    shaft.rotation.z = Math.PI / 2;
     const blade = new THREE.Mesh(paddleGeo, bladeMat);
     shaft.castShadow = true;
-    blade.scale.set(1.1, 0.2, 0.9);
-    blade.position.set(side * 3.18, 0, -0.08);
+    blade.scale.set(1.15, 0.08, 0.72);
+    blade.position.set(side * 3.35, 0, -0.08);
+    blade.rotation.z = side * 0.08;
     blade.castShadow = true;
-    oar.position.set(side * 3.9, 1.18, 0.8);
+    oar.position.set(side * 3.42, 1.44, 0.75);
+    oar.rotation.z = side * 0.08;
     oar.add(shaft, blade);
   }
-  group.add(hull, bow, stern, seat, rower, face, stripe, leftOar, rightOar);
+  group.add(hull, deck, bow, stern, seat, torso, head, hair, face, leftArm, rightArm, stripe, leftOar, rightOar);
   group.userData.oars = [leftOar, rightOar];
   return group;
 }
@@ -196,53 +247,83 @@ function clearWorld() {
 function buildTrack() {
   clearWorld();
   const track = TRACKS[state.selectedTrack];
-  scene.background = new THREE.Color(track.name === "Moon Ferry" ? 0x344c7a : 0xbcecff);
+  scene.background = new THREE.Color(track.name === "Moon Ferry" ? 0x2f4d78 : 0xaeddf0);
   scene.fog.color.copy(scene.background);
 
   for (let i = 0; i < 130; i++) {
     const z = -i * 48;
     const p = i / 129;
     const cx = curveX(p);
-    const water = new THREE.Mesh(new THREE.BoxGeometry(88, 0.22, 50), mat(track.color, 0.38));
-    water.position.set(cx, 0, z);
+    const water = new THREE.Mesh(
+      new THREE.BoxGeometry(90, 0.16, 50),
+      mat(track.color, 0.2, { transparent: true, opacity: 0.88 })
+    );
+    water.position.set(cx, -0.04, z);
     water.receiveShadow = true;
     world.add(water);
 
-    const left = new THREE.Mesh(new THREE.BoxGeometry(32, 2.2, 50), mat(track.banks, 0.82));
-    const right = left.clone();
-    left.position.set(cx - 59, 0.85, z);
-    right.position.set(cx + 59, 0.85, z);
-    left.receiveShadow = true;
-    right.receiveShadow = true;
-    world.add(left, right);
+    const leftBank = new THREE.Group();
+    const rightBank = new THREE.Group();
+    for (const [bank, side] of [[leftBank, -1], [rightBank, 1]]) {
+      const grass = new THREE.Mesh(new THREE.BoxGeometry(34, 1.1, 50), mat(track.banks, 0.78));
+      grass.position.set(side * 61, 0.8, 0);
+      grass.receiveShadow = true;
+      const soil = new THREE.Mesh(new THREE.BoxGeometry(10, 1.4, 50), mat(0x8a6848, 0.86));
+      soil.position.set(side * 42, 0.34, 0);
+      soil.rotation.z = side * 0.23;
+      soil.receiveShadow = true;
+      const lip = new THREE.Mesh(new THREE.BoxGeometry(4, 0.28, 50), mat(0xd6bd82, 0.74));
+      lip.position.set(side * 37, 0.28, 0);
+      lip.receiveShadow = true;
+      bank.position.set(cx, 0, z);
+      bank.add(grass, soil, lip);
+      world.add(bank);
+    }
 
     const foamOffset = i % 2 === 0 ? -18 : 18;
-    const foam = new THREE.Mesh(new THREE.BoxGeometry(10, 0.08, 1.6), mat(0xeaffff, 0.35));
-    foam.position.set(cx + foamOffset, 0.18, z + 10);
+    const foam = new THREE.Mesh(new THREE.BoxGeometry(12, 0.045, 1.15), mat(0xf3ffff, 0.18, { transparent: true, opacity: 0.72 }));
+    foam.position.set(cx + foamOffset, 0.08, z + 10);
     foam.rotation.y = (i % 3 - 1) * 0.18;
     world.add(foam);
+    if (i % 3 === 0) {
+      const ripple = new THREE.Mesh(new THREE.BoxGeometry(18, 0.035, 0.42), mat(0xffffff, 0.15, { transparent: true, opacity: 0.42 }));
+      ripple.position.set(cx - foamOffset * 0.5, 0.09, z - 8);
+      ripple.rotation.y = (i % 5 - 2) * 0.1;
+      world.add(ripple);
+    }
 
     if (i % 4 === 0) {
-      const marker = new THREE.Mesh(boxGeo, mat(0xf6ce5f, 0.7));
-      marker.scale.set(1.35, 2.35, 1.35);
-      marker.position.set(cx - 39, 2.3, z);
+      const marker = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.72, 2.5, 12), mat(0xe3b15c, 0.62));
+      marker.position.set(cx - 39, 1.95, z);
       marker.castShadow = true;
-      const cap = new THREE.Mesh(beadGeo, mat(0xff8fb7, 0.55));
-      cap.scale.set(1.1, 0.7, 1.1);
-      cap.position.set(cx - 39, 3.7, z);
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.9, 14, 8), mat(0xff8fb7, 0.52));
+      cap.scale.set(1.05, 0.56, 1.05);
+      cap.position.set(cx - 39, 3.35, z);
       cap.castShadow = true;
       world.add(marker, cap);
+    }
+    if (i % 5 === 0) {
+      for (let s = -1; s <= 1; s += 2) {
+        const stone = new THREE.Mesh(new THREE.DodecahedronGeometry(0.8 + Math.random() * 0.6, 0), mat(0x7c8682, 0.88));
+        stone.scale.set(1.4, 0.55, 0.95);
+        stone.position.set(cx + s * (34 + Math.random() * 9), 0.25, z + (Math.random() - 0.5) * 22);
+        stone.rotation.set(Math.random(), Math.random(), Math.random());
+        stone.castShadow = true;
+        stone.receiveShadow = true;
+        world.add(stone);
+      }
     }
     if (i % 7 === 0) {
       const reeds = new THREE.Group();
       for (let r = 0; r < 5; r++) {
-        const reed = new THREE.Mesh(boxGeo, mat(0x88b76b, 0.9));
-        reed.scale.set(0.35, 1.35 + Math.random(), 0.35);
-        reed.position.set((Math.random() - 0.5) * 10, reed.scale.y / 2, (Math.random() - 0.5) * 18);
+        const height = 1.6 + Math.random();
+        const reed = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, height, 6), mat(0x6e9f50, 0.86));
+        reed.position.set((Math.random() - 0.5) * 10, height / 2, (Math.random() - 0.5) * 18);
+        reed.rotation.z = (Math.random() - 0.5) * 0.28;
         reeds.add(reed);
       }
       for (let f = 0; f < 3; f++) {
-        const flower = new THREE.Mesh(beadGeo, mat(track.flower, 0.58));
+        const flower = new THREE.Mesh(new THREE.SphereGeometry(0.38, 10, 8), mat(track.flower, 0.58));
         flower.scale.set(0.45, 0.32, 0.45);
         flower.position.set((Math.random() - 0.5) * 12, 1.45 + Math.random() * 0.5, (Math.random() - 0.5) * 18);
         flower.castShadow = true;
@@ -250,6 +331,21 @@ function buildTrack() {
       }
       reeds.position.set(cx + (Math.random() > 0.5 ? 42 : -42), 1, z);
       world.add(reeds);
+    }
+    if (i % 11 === 0) {
+      for (let s = -1; s <= 1; s += 2) {
+        const tree = new THREE.Group();
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.6, 3.4, 10), mat(0x7a5134, 0.76));
+        trunk.position.y = 1.7;
+        trunk.castShadow = true;
+        const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(1.9, 1), mat(0x5fa862, 0.72));
+        crown.scale.set(1.25, 1.05, 1.25);
+        crown.position.y = 4.05;
+        crown.castShadow = true;
+        tree.position.set(cx + s * (68 + Math.random() * 5), 1.05, z + (Math.random() - 0.5) * 20);
+        tree.add(trunk, crown);
+        world.add(tree);
+      }
     }
   }
 
