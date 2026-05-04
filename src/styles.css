@@ -276,6 +276,7 @@ h3 {
   pointer-events: none;
   z-index: 10;
   padding: 18px;
+  user-select: none;
 }
 
 .hud-top,
@@ -395,6 +396,64 @@ h3 {
   text-align: center;
 }
 
+.touch-controls {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 118px;
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 18px;
+  pointer-events: none;
+}
+
+.touch-pad,
+.touch-actions {
+  display: flex;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+.touch-actions {
+  align-items: end;
+}
+
+.touch-button {
+  min-width: 68px;
+  height: 58px;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: #102016;
+  background: rgba(255, 217, 102, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.touch-boost {
+  width: 82px;
+  height: 82px;
+  border-radius: 50%;
+  background: rgba(122, 217, 157, 0.92);
+}
+
+.touch-drift,
+.touch-item {
+  background: rgba(126, 224, 204, 0.9);
+}
+
+.touch-button.pressed,
+.touch-button:active {
+  transform: translateY(3px) scale(0.97);
+  filter: brightness(1.12);
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.32);
+}
+
 .finish-list {
   display: grid;
   gap: 8px;
@@ -433,6 +492,34 @@ h3 {
     bottom: 10px;
   }
 
+  .hud-bottom {
+    bottom: 132px;
+  }
+
+  .touch-controls {
+    left: 10px;
+    right: 10px;
+    bottom: 16px;
+    gap: 10px;
+  }
+
+  .touch-pad,
+  .touch-actions {
+    gap: 8px;
+  }
+
+  .touch-button {
+    min-width: 58px;
+    height: 54px;
+    padding: 0 9px;
+    font-size: 0.7rem;
+  }
+
+  .touch-boost {
+    width: 74px;
+    height: 74px;
+  }
+
   .minimap {
     width: 112px;
     height: 112px;
@@ -445,5 +532,20 @@ h3 {
 
   .value {
     font-size: 1.05rem;
+  }
+
+  .race-help {
+    display: none;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (min-width: 821px) {
+  .touch-controls {
+    opacity: 0.34;
+    transition: opacity 160ms ease;
+  }
+
+  .touch-controls:hover {
+    opacity: 0.9;
   }
 }

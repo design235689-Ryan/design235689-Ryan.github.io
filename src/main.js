@@ -86,6 +86,17 @@ app.innerHTML = `
         </div>
         <div id="itemSlot" class="item-slot"><span class="item-icon">--</span><span class="item-name">No Item</span></div>
       </div>
+      <div id="touchControls" class="touch-controls" aria-label="Touch race controls">
+        <div class="touch-pad">
+          <button class="touch-button" data-touch-key="arrowleft" aria-label="Steer left">Left</button>
+          <button class="touch-button" data-touch-key="arrowright" aria-label="Steer right">Right</button>
+        </div>
+        <div class="touch-actions">
+          <button class="touch-button touch-drift" data-touch-key=" " aria-label="Drift">Drift</button>
+          <button class="touch-button touch-boost" data-touch-key="arrowup" aria-label="Accelerate">Go</button>
+          <button class="touch-button touch-item" data-touch-action="item" aria-label="Use item">Item</button>
+        </div>
+      </div>
     </div>
     <div id="menu" class="screen"></div>
     <div id="pause" class="screen hidden"></div>
@@ -759,7 +770,41 @@ window.addEventListener("keyup", event => {
   state.keys.delete(event.key.toLowerCase());
 });
 
+function bindTouchControls() {
+  document.querySelectorAll("[data-touch-key], [data-touch-action]").forEach(button => {
+    const key = button.dataset.touchKey;
+    const isItem = button.dataset.touchAction === "item";
+    const release = event => {
+      event.preventDefault();
+      if (key) state.keys.delete(key);
+      button.classList.remove("pressed");
+      try {
+        button.releasePointerCapture(event.pointerId);
+      } catch {
+        // Pointer capture may already be released on some mobile browsers.
+      }
+    };
+
+    button.addEventListener("pointerdown", event => {
+      event.preventDefault();
+      button.setPointerCapture(event.pointerId);
+      button.classList.add("pressed");
+      if (isItem) {
+        if (state.screen === "race") useItem(state.player);
+        return;
+      }
+      if (key) state.keys.add(key);
+    });
+    button.addEventListener("pointerup", release);
+    button.addEventListener("pointercancel", release);
+    button.addEventListener("pointerleave", event => {
+      if (event.pointerType === "touch" && key) release(event);
+    });
+  });
+}
+
 renderMenu();
+bindTouchControls();
 buildTrack();
 camera.position.set(0, 24, 52);
 camera.lookAt(0, 0, -40);
