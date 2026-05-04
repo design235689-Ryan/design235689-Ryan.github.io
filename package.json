@@ -1,0 +1,17 @@
+{
+  "name": "rowing-voxel-racer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "vite": "4.5.5",
+    "three": "^0.170.0",
+    "lucide-static": "^0.468.0"
+  },
+  "devDependencies": {}
+}
