@@ -64,6 +64,7 @@ const state = {
   bannerUntil: 0,
   finished: false,
   splitTimes: [],
+  modelsReady: false,
   keys: new Set()
 };
 
@@ -181,6 +182,8 @@ async function preloadModels() {
   const tasks = Object.entries(ASSET_CATALOG).map(([key, path]) => loadCatalogModel(key, path));
   await Promise.all(tasks);
 }
+
+const modelsLoadPromise = preloadModels();
 
 function cloneCachedModel(key, scale = 1, rotationY = 0) {
   const base = modelCache.get(key);
@@ -552,6 +555,10 @@ function renderMenu() {
   menu.querySelectorAll("[data-toggle]").forEach(btn => btn.addEventListener("click", () => { state[btn.dataset.toggle] = !state[btn.dataset.toggle]; renderMenu(); }));
   menu.querySelector("#startRace").addEventListener("click", () => { state.screen = "race"; startRace(); });
   menu.querySelector("#openOptions").addEventListener("click", renderOptions);
+
+  const startBtn = menu.querySelector("#startRace");
+  startBtn.disabled = !state.modelsReady;
+  startBtn.textContent = state.modelsReady ? "Start Race" : "Loading...";
 }
 
 function renderOptions() {
@@ -883,7 +890,11 @@ bindTouchControls();
 buildTrack();
 camera.position.set(0, 24, 52);
 camera.lookAt(0, 0, -40);
-preloadModels().then(() => {
-  if (state.screen === "menu") buildTrack();
+modelsLoadPromise.then(() => {
+  state.modelsReady = true;
+  if (state.screen === "menu") {
+    buildTrack(); // rebuild now that clones exist
+    renderMenu(); // enable Start Race button
+  }
 });
 requestAnimationFrame(tick);
