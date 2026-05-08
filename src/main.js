@@ -270,11 +270,17 @@ function makeBoatFallback(character, isPlayer) {
 }
 
 function makeBoat(character, isPlayer) {
-  const modelBoat = cloneCachedModel("playerBoat", 1.25, Math.PI);
-  if (!modelBoat) return makeBoatFallback(character, isPlayer);
-  modelBoat.userData.oars = [];
-  modelBoat.position.y = 0.55;
-  return modelBoat;
+  const boatModel = cloneCachedModel("playerBoat", 1.25, Math.PI);
+  const rowerModel = cloneCachedModel("playerRower", 1.25, Math.PI);
+  if (!boatModel || !rowerModel) return makeBoatFallback(character, isPlayer);
+
+  const group = new THREE.Group();
+  boatModel.position.y = 0.55;
+  rowerModel.position.y = 1.35;
+  rowerModel.position.z = -0.2;
+  group.add(boatModel, rowerModel);
+  group.userData.oars = [];
+  return group;
 }
 
 function curveX(progress, track = TRACKS[state.selectedTrack]) {

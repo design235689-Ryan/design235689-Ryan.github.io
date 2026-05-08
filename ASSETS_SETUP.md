@@ -2,12 +2,17 @@
 
 Put your downloaded `.glb` files in these paths:
 
+- `assets/models/boats/boat.glb`
 - `assets/models/characters/rower.glb`
 - `assets/models/obstacles/buoy.glb`
 - `assets/models/obstacles/crate.glb`
 - `assets/models/obstacles/rock.glb`
 - `assets/models/scenery/tree.glb`
 - `assets/models/scenery/reeds.glb`
+
+Player setup now uses two separate models:
+- Boat: `assets/models/boats/boat.glb`
+- Character: `assets/models/characters/rower.glb`
 
 If your file names are different, update `src/assetCatalog.js`.
 
