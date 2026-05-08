@@ -7,7 +7,7 @@ Put your downloaded `.glb` files in these paths:
 - `assets/models/obstacles/buoy.glb`
 - `assets/models/obstacles/crate.glb`
 - `assets/models/obstacles/rock.glb`
-- `assets/models/scenery/tree.glb`
+- `assets/models/scenery/Tree.glb`
 - `assets/models/scenery/reeds.glb`
 
 Player setup now uses two separate models:
@@ -26,3 +26,8 @@ If your file names are different, update `src/assetCatalog.js`.
 
 Prefer CC0 / Public Domain assets when possible.
 If an asset is CC BY, keep attribution in your project docs.
+
+## Hosting Note (GitHub Pages)
+
+這個專案的 `vite.config.js` 設定了 `publicDir: "assets"`。
+因此遊戲端載入模型時會使用 `/models/...` 路徑（不是 `/assets/...`）。
