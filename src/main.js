@@ -1,5 +1,7 @@
 import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import settingsIcon from "lucide-static/icons/settings.svg";
+import { ASSET_CATALOG } from "./assetCatalog";
 import "./styles.css";
 
 const TRACKS = [
@@ -141,6 +143,8 @@ const shaftGeo = new THREE.CylinderGeometry(0.07, 0.07, 6.2, 10);
 const paddleGeo = new THREE.BoxGeometry(1, 1, 1);
 const trimGeo = new THREE.BoxGeometry(1, 1, 1);
 const materials = new Map();
+const gltfLoader = new GLTFLoader();
+const modelCache = new Map();
 function mat(color, rough = 0.75, options = {}) {
   const key = `${color}-${rough}-${options.metalness || 0.02}-${options.opacity || 1}-${options.transparent || false}`;
   if (!materials.has(key)) {
@@ -155,7 +159,39 @@ function mat(color, rough = 0.75, options = {}) {
   return materials.get(key);
 }
 
-function makeBoat(character, isPlayer) {
+function setupModelShadows(root) {
+  root.traverse(node => {
+    if (!node.isMesh) return;
+    node.castShadow = true;
+    node.receiveShadow = true;
+  });
+}
+
+async function loadCatalogModel(key, path) {
+  try {
+    const gltf = await gltfLoader.loadAsync(path);
+    setupModelShadows(gltf.scene);
+    modelCache.set(key, gltf.scene);
+  } catch (error) {
+    console.warn(`Failed loading ${key} from ${path}`, error);
+  }
+}
+
+async function preloadModels() {
+  const tasks = Object.entries(ASSET_CATALOG).map(([key, path]) => loadCatalogModel(key, path));
+  await Promise.all(tasks);
+}
+
+function cloneCachedModel(key, scale = 1, rotationY = 0) {
+  const base = modelCache.get(key);
+  if (!base) return null;
+  const clone = base.clone(true);
+  clone.scale.setScalar(scale);
+  clone.rotation.y = rotationY;
+  return clone;
+}
+
+function makeBoatFallback(character, isPlayer) {
   const group = new THREE.Group();
   const hull = new THREE.Mesh(hullGeo, mat(character.color, 0.5));
   hull.rotation.x = Math.PI / 2;
@@ -233,6 +269,14 @@ function makeBoat(character, isPlayer) {
   return group;
 }
 
+function makeBoat(character, isPlayer) {
+  const modelBoat = cloneCachedModel("playerBoat", 1.25, Math.PI);
+  if (!modelBoat) return makeBoatFallback(character, isPlayer);
+  modelBoat.userData.oars = [];
+  modelBoat.position.y = 0.55;
+  return modelBoat;
+}
+
 function curveX(progress, track = TRACKS[state.selectedTrack]) {
   const bends = track.bends;
   const scaled = progress * (bends.length - 1);
@@ -253,6 +297,60 @@ function trackPos(distance, lateral = 0) {
 
 function clearWorld() {
   while (world.children.length) world.remove(world.children[0]);
+}
+
+function makeBuoyFallback(track) {
+  const buoy = new THREE.Group();
+  const marker = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.72, 2.5, 12), mat(0xe3b15c, 0.62));
+  marker.position.y = 1.95;
+  marker.castShadow = true;
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.9, 14, 8), mat(track.flower, 0.52));
+  cap.scale.set(1.05, 0.56, 1.05);
+  cap.position.y = 3.35;
+  cap.castShadow = true;
+  buoy.add(marker, cap);
+  return buoy;
+}
+
+function makeRockFallback() {
+  const stone = new THREE.Mesh(new THREE.DodecahedronGeometry(0.8 + Math.random() * 0.6, 0), mat(0x7c8682, 0.88));
+  stone.scale.set(1.4, 0.55, 0.95);
+  stone.rotation.set(Math.random(), Math.random(), Math.random());
+  stone.castShadow = true;
+  stone.receiveShadow = true;
+  return stone;
+}
+
+function makeReedsFallback(track) {
+  const reeds = new THREE.Group();
+  for (let r = 0; r < 5; r++) {
+    const height = 1.6 + Math.random();
+    const reed = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, height, 6), mat(0x6e9f50, 0.86));
+    reed.position.set((Math.random() - 0.5) * 10, height / 2, (Math.random() - 0.5) * 18);
+    reed.rotation.z = (Math.random() - 0.5) * 0.28;
+    reeds.add(reed);
+  }
+  for (let f = 0; f < 3; f++) {
+    const flower = new THREE.Mesh(new THREE.SphereGeometry(0.38, 10, 8), mat(track.flower, 0.58));
+    flower.scale.set(0.45, 0.32, 0.45);
+    flower.position.set((Math.random() - 0.5) * 12, 1.45 + Math.random() * 0.5, (Math.random() - 0.5) * 18);
+    flower.castShadow = true;
+    reeds.add(flower);
+  }
+  return reeds;
+}
+
+function makeTreeFallback() {
+  const tree = new THREE.Group();
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.6, 3.4, 10), mat(0x7a5134, 0.76));
+  trunk.position.y = 1.7;
+  trunk.castShadow = true;
+  const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(1.9, 1), mat(0x5fa862, 0.72));
+  crown.scale.set(1.25, 1.05, 1.25);
+  crown.position.y = 4.05;
+  crown.castShadow = true;
+  tree.add(trunk, crown);
+  return tree;
 }
 
 function buildTrack() {
@@ -304,57 +402,26 @@ function buildTrack() {
     }
 
     if (i % 4 === 0) {
-      const marker = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.72, 2.5, 12), mat(0xe3b15c, 0.62));
-      marker.position.set(cx - 39, 1.95, z);
-      marker.castShadow = true;
-      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.9, 14, 8), mat(0xff8fb7, 0.52));
-      cap.scale.set(1.05, 0.56, 1.05);
-      cap.position.set(cx - 39, 3.35, z);
-      cap.castShadow = true;
-      world.add(marker, cap);
+      const buoy = cloneCachedModel("obstacleBuoy", 1.35) || makeBuoyFallback(track);
+      buoy.position.set(cx - 39, 0, z);
+      world.add(buoy);
     }
     if (i % 5 === 0) {
       for (let s = -1; s <= 1; s += 2) {
-        const stone = new THREE.Mesh(new THREE.DodecahedronGeometry(0.8 + Math.random() * 0.6, 0), mat(0x7c8682, 0.88));
-        stone.scale.set(1.4, 0.55, 0.95);
+        const stone = cloneCachedModel("obstacleRock", 1.25) || makeRockFallback();
         stone.position.set(cx + s * (34 + Math.random() * 9), 0.25, z + (Math.random() - 0.5) * 22);
-        stone.rotation.set(Math.random(), Math.random(), Math.random());
-        stone.castShadow = true;
-        stone.receiveShadow = true;
         world.add(stone);
       }
     }
     if (i % 7 === 0) {
-      const reeds = new THREE.Group();
-      for (let r = 0; r < 5; r++) {
-        const height = 1.6 + Math.random();
-        const reed = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, height, 6), mat(0x6e9f50, 0.86));
-        reed.position.set((Math.random() - 0.5) * 10, height / 2, (Math.random() - 0.5) * 18);
-        reed.rotation.z = (Math.random() - 0.5) * 0.28;
-        reeds.add(reed);
-      }
-      for (let f = 0; f < 3; f++) {
-        const flower = new THREE.Mesh(new THREE.SphereGeometry(0.38, 10, 8), mat(track.flower, 0.58));
-        flower.scale.set(0.45, 0.32, 0.45);
-        flower.position.set((Math.random() - 0.5) * 12, 1.45 + Math.random() * 0.5, (Math.random() - 0.5) * 18);
-        flower.castShadow = true;
-        reeds.add(flower);
-      }
+      const reeds = cloneCachedModel("sceneryReeds", 1.8) || makeReedsFallback(track);
       reeds.position.set(cx + (Math.random() > 0.5 ? 42 : -42), 1, z);
       world.add(reeds);
     }
     if (i % 11 === 0) {
       for (let s = -1; s <= 1; s += 2) {
-        const tree = new THREE.Group();
-        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.6, 3.4, 10), mat(0x7a5134, 0.76));
-        trunk.position.y = 1.7;
-        trunk.castShadow = true;
-        const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(1.9, 1), mat(0x5fa862, 0.72));
-        crown.scale.set(1.25, 1.05, 1.25);
-        crown.position.y = 4.05;
-        crown.castShadow = true;
+        const tree = cloneCachedModel("sceneryTree", 2.3) || makeTreeFallback();
         tree.position.set(cx + s * (68 + Math.random() * 5), 1.05, z + (Math.random() - 0.5) * 20);
-        tree.add(trunk, crown);
         world.add(tree);
       }
     }
@@ -670,7 +737,9 @@ function updateRacer(r, dt) {
   r.mesh.lookAt(ahead.x, 0, ahead.z);
   if (r.spin > 0) r.mesh.rotation.y += Math.sin(state.raceTime * 26) * 0.18;
   const oarSwing = Math.sin(state.raceTime * (r.boost > 0 ? 17 : 11)) * 0.34;
-  r.mesh.userData.oars.forEach((oar, i) => { oar.rotation.y = (i ? -1 : 1) * oarSwing; });
+  if (r.mesh.userData.oars?.length) {
+    r.mesh.userData.oars.forEach((oar, i) => { oar.rotation.y = (i ? -1 : 1) * oarSwing; });
+  }
 }
 
 function updateCamera(dt) {
@@ -808,4 +877,7 @@ bindTouchControls();
 buildTrack();
 camera.position.set(0, 24, 52);
 camera.lookAt(0, 0, -40);
+preloadModels().then(() => {
+  if (state.screen === "menu") buildTrack();
+});
 requestAnimationFrame(tick);
