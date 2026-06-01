@@ -21,3 +21,12 @@ npm run dev
 ```bash
 npm run build
 ```
+
+## Art Credits
+
+Spacecraft, enemy ships, and space background use selected PNG assets from Kenney's "Space Shooter Redux" pack on OpenGameArt.
+
+- Author: Kenney
+- License: CC0 / public domain
+- Source: https://opengameart.org/content/space-shooter-redux
+- Attribution is not required by the license, but credit to Kenney.nl is appreciated.

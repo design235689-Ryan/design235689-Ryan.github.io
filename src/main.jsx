@@ -5,6 +5,13 @@ import "./styles.css";
 
 const W = 960;
 const H = 540;
+const SPRITES = {
+  player: "/assets/kenney/playerShip1_blue.png",
+  enemyImp: "/assets/kenney/enemyRed3.png",
+  enemyOrb: "/assets/kenney/enemyBlue5.png",
+  enemyMask: "/assets/kenney/enemyBlack4.png",
+  background: "/assets/kenney/space_purple.png"
+};
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 const hit = (a, b) => Math.hypot(a.x - b.x, a.y - b.y) < (a.r || 12) + (b.r || 12);
 
@@ -16,6 +23,7 @@ function App() {
   const firePad = useRef(false);
   const audio = useRef(null);
   const game = useRef(null);
+  const sprites = useRef({});
   const [snap, setSnap] = useState({ score: 0, hp: 5, wave: 1, power: 1, buffTimer: 0, paused: true, over: false, muted: false, started: false });
   const [stick, setStick] = useState({ x: 0, y: 0, active: false });
 
@@ -45,6 +53,16 @@ function App() {
   };
 
   useEffect(reset, []);
+
+  useEffect(() => {
+    Object.entries(SPRITES).forEach(([key, src]) => {
+      const img = new Image();
+      img.src = src;
+      img.onload = () => {
+        sprites.current[key] = img;
+      };
+    });
+  }, []);
 
   const startGame = () => {
     const g = game.current;
@@ -260,28 +278,9 @@ function App() {
     ctx.save();
     ctx.clearRect(0, 0, W, H);
     if (g.shake) ctx.translate((Math.random() - 0.5) * g.shake, (Math.random() - 0.5) * g.shake);
-    const sky = ctx.createLinearGradient(0, 0, W, H);
-    sky.addColorStop(0, "#090718");
-    sky.addColorStop(0.55, "#172456");
-    sky.addColorStop(1, "#2c1844");
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, W, H);
+    drawScene(ctx, g);
     ctx.fillStyle = "#fff8";
     g.stars.forEach((s) => ctx.fillRect(s.x, s.y, s.z, s.z));
-    ctx.fillStyle = "#6f84b9";
-    g.moon.forEach((m) => {
-      ctx.beginPath();
-      ctx.arc(m.x - (g.t * 0.2) % 60, m.y, m.r, 0, Math.PI * 2);
-      ctx.fill();
-    });
-    ctx.fillStyle = "#26325e";
-    ctx.fillRect(0, 436, W, 104);
-    ctx.fillStyle = "#475d94";
-    for (let x = -80; x < W + 80; x += 90) {
-      ctx.beginPath();
-      ctx.arc(x - (g.t * 1.2) % 90, 438, 68, Math.PI, 0);
-      ctx.fill();
-    }
     drawPlayer(ctx, g.player, g.t);
     g.shots.forEach((s) => {
       ctx.fillStyle = "#f8e98d";
@@ -316,6 +315,31 @@ function App() {
     ctx.restore();
   };
 
+  const drawScene = (ctx, g) => {
+    const bg = sprites.current.background;
+    if (bg?.complete) {
+      const scale = H / bg.height;
+      const tileW = bg.width * scale;
+      const offset = (g.t * 0.45) % tileW;
+      for (let x = -tileW - offset; x < W + tileW; x += tileW) {
+        ctx.drawImage(bg, x, 0, tileW, H);
+      }
+      const haze = ctx.createLinearGradient(0, 0, W, H);
+      haze.addColorStop(0, "rgba(8, 9, 24, .18)");
+      haze.addColorStop(0.7, "rgba(22, 31, 74, .3)");
+      haze.addColorStop(1, "rgba(20, 8, 28, .48)");
+      ctx.fillStyle = haze;
+      ctx.fillRect(0, 0, W, H);
+      return;
+    }
+    const sky = ctx.createLinearGradient(0, 0, W, H);
+    sky.addColorStop(0, "#090718");
+    sky.addColorStop(0.55, "#172456");
+    sky.addColorStop(1, "#2c1844");
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+  };
+
   const drawStatusBadge = (ctx, g) => {
     if (g.buffTimer <= 0) return;
     ctx.save();
@@ -345,6 +369,24 @@ function App() {
   };
 
   const drawPlayer = (ctx, p, t) => {
+    const img = sprites.current.player;
+    if (img?.complete) {
+      ctx.save();
+      ctx.globalAlpha = p.inv > 0 && Math.floor(t / 5) % 2 ? 0.45 : 1;
+      ctx.translate(p.x, p.y);
+      ctx.rotate(Math.PI / 2);
+      const scale = 0.62;
+      ctx.drawImage(img, -img.width * scale / 2, -img.height * scale / 2, img.width * scale, img.height * scale);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillStyle = "#ff7a45";
+      ctx.beginPath();
+      ctx.moveTo(-40, -7);
+      ctx.lineTo(-64 - Math.random() * 10, 0);
+      ctx.lineTo(-40, 7);
+      ctx.fill();
+      ctx.restore();
+      return;
+    }
     ctx.save();
     ctx.globalAlpha = p.inv > 0 && Math.floor(t / 5) % 2 ? 0.45 : 1;
     ctx.translate(p.x, p.y);
@@ -416,6 +458,27 @@ function App() {
   };
 
   const drawEnemy = (ctx, e, t) => {
+    const enemyImg = e.kind === "boss" ? sprites.current.enemyMask : e.kind === "mask" ? sprites.current.enemyMask : e.kind === "orb" ? sprites.current.enemyOrb : sprites.current.enemyImp;
+    if (enemyImg?.complete) {
+      ctx.save();
+      ctx.translate(e.x, e.y);
+      ctx.rotate(-Math.PI / 2 + Math.sin(t / 20 + e.phase) * 0.12);
+      const scale = e.kind === "boss" ? 1.35 : e.kind === "mask" ? 0.68 : 0.58;
+      ctx.drawImage(enemyImg, -enemyImg.width * scale / 2, -enemyImg.height * scale / 2, enemyImg.width * scale, enemyImg.height * scale);
+      ctx.rotate(Math.PI / 2);
+      ctx.fillStyle = "#ffd166";
+      ctx.beginPath();
+      ctx.moveTo(-e.r - 2, -5);
+      ctx.lineTo(-e.r - 18, 0);
+      ctx.lineTo(-e.r - 2, 5);
+      ctx.fill();
+      if (e.kind === "boss") {
+        ctx.fillStyle = "#ff6e91";
+        ctx.fillRect(-68, -82, Math.max(0, 136 * e.hp / e.max), 8);
+      }
+      ctx.restore();
+      return;
+    }
     ctx.save();
     ctx.translate(e.x, e.y);
     if (e.kind === "boss") {
